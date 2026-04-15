@@ -19,8 +19,7 @@ class ExportController extends Controller
     {
         $form = Form::with('fields')->findOrFail($request->form_id);
 
-        $submissions = Submission::where('form_id', $form->id)->get();
-
+        $submissions = Submission::with('data')->where('form_id', $form->id)->get();
         $filename = 'form_' . $form->id . '_export.csv';
 
         $headers = [

@@ -27,6 +27,10 @@ class Submission extends Model
         return $this->hasMany(SubmissionData::class);
     }
 
+       public function data2()
+    {
+        return $this->hasMany(SubmissionData::class,'id','submission_id');
+    }
     public function dataWithField()
 {
     return $this->hasMany(SubmissionData::class)->with('field');
