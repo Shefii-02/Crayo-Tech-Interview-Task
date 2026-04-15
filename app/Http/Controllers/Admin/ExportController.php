@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\Submission;
+use App\Models\SubmissionData;
 use Illuminate\Http\Request;
 
 class ExportController extends Controller
@@ -19,7 +20,8 @@ class ExportController extends Controller
     {
         $form = Form::with('fields')->findOrFail($request->form_id);
 
-        $submissions = Submission::with('data')->where('form_id', $form->id)->get();
+        $submissions = Submission::where('form_id', $form->id)->get();
+
         $filename = 'form_' . $form->id . '_export.csv';
 
         $headers = [
@@ -27,12 +29,12 @@ class ExportController extends Controller
             "Content-Disposition" => "attachment; filename=$filename",
         ];
 
-        $callback = function () use ($submissions, $form) {
+        return response()->stream(function () use ($submissions, $form) {
 
             $file = fopen('php://output', 'w');
 
-            // FIELD MAP (ID => LABEL)
-            $fields = $form->fields->sortBy('order');
+            // ✅ KEEP COLLECTION (DON'T convert to array too early)
+            $fields = $form->fields->sortBy('order')->values();
 
             $fieldIds = $fields->pluck('id')->toArray();
             $fieldLabels = $fields->pluck('label')->toArray();
@@ -40,32 +42,23 @@ class ExportController extends Controller
             // HEADER
             fputcsv($file, $fieldLabels);
 
-            // DATA ROWS
             foreach ($submissions as $sub) {
 
-                $data = is_array($sub->data)
-                    ? $sub->data
-                    : json_decode($sub->data, true);
+                $data = $sub->data()
+                    ->get()
+                    ->pluck('value', 'field_id')
+                    ->toArray();
 
                 $row = [];
 
                 foreach ($fieldIds as $fieldId) {
-
-                    $value = $data[$fieldId] ?? '';
-
-                    if (is_array($value)) {
-                        $value = implode('|', $value);
-                    }
-
-                    $row[] = $value;
+                    $row[] = $data[$fieldId] ?? '';
                 }
 
                 fputcsv($file, $row);
             }
 
             fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        }, 200, $headers);
     }
 }
