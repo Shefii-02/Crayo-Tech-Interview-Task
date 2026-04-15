@@ -32,17 +32,27 @@ class ExportController extends Controller
 
             $file = fopen('php://output', 'w');
 
-            // HEADER ROW
-            $fieldLabels = $form->fields->pluck('label', 'id');
-            fputcsv($file, $fieldLabels->values()->toArray());
+            // FIELD MAP (ID => LABEL)
+            $fields = $form->fields->sortBy('order');
+
+            $fieldIds = $fields->pluck('id')->toArray();
+            $fieldLabels = $fields->pluck('label')->toArray();
+
+            // HEADER
+            fputcsv($file, $fieldLabels);
 
             // DATA ROWS
             foreach ($submissions as $sub) {
 
+                $data = is_array($sub->data)
+                    ? $sub->data
+                    : json_decode($sub->data, true);
+
                 $row = [];
 
-                foreach ($fieldLabels as $fieldId => $label) {
-                    $value = $sub->data[$fieldId] ?? '';
+                foreach ($fieldIds as $fieldId) {
+
+                    $value = $data[$fieldId] ?? '';
 
                     if (is_array($value)) {
                         $value = implode('|', $value);
