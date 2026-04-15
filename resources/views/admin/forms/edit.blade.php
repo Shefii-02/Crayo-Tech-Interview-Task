@@ -1,38 +1,29 @@
 @extends('admin.layout')
 
 @section('admin-content')
-    <style>
-        .drag-handle {
-            cursor: grab;
-        }
-
-        .drag-handle:active {
-            cursor: grabbing;
-        }
-    </style>
-
     <div class="container-fluid">
 
 
-        <h2 class="mb-4">Create Form</h2>
+        <h2 class="mb-4">Edit Form</h2>
 
-        <form method="POST" action="/admin/forms">
+        <form method="POST" action="/admin/forms/{{ $form->id }}">
             @csrf
+            @method('PUT')
 
-            {{-- FORM DETAILS --}}
+            {{-- FORM INFO --}}
             <div class="card mb-4">
                 <div class="card-body row">
 
                     <div class="col-md-6">
                         <label>Form Title</label>
-                        <input type="text" name="title" class="form-control" required>
+                        <input type="text" name="title" class="form-control" value="{{ $form->title }}">
                     </div>
 
                     <div class="col-md-6">
                         <label>Status</label>
                         <select name="status" class="form-select">
-                            <option value="1">Active</option>
-                            <option value="0">Inactive</option>
+                            <option value="1" {{ $form->status ? 'selected' : '' }}>Active</option>
+                            <option value="0" {{ !$form->status ? 'selected' : '' }}>Inactive</option>
                         </select>
                     </div>
 
@@ -42,47 +33,36 @@
             {{-- FIELDS --}}
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between">
-
-                    <div>
-                        <h5 class="mb-0">Fields</h5>
-                        <small class="text-danger">Drag & drop ordering</small>
-                    </div>
-
-                    <div>
-                        <button type="button" class="btn btn-info btn-sm text-white" data-bs-toggle="modal"
-                            data-bs-target="#validationHelpModal">
-                            ? Help
-                        </button>
-
-                        <button type="button" onclick="addField()" class="btn btn-primary btn-sm">
-                            + Add Field
-                        </button>
-                    </div>
-
+                    <h5>Fields</h5>
+                    <button type="button" onclick="addField()" class="btn btn-primary btn-sm">
+                        + Add Field
+                    </button>
                 </div>
 
                 <div class="card-body" id="fields-container"></div>
             </div>
 
-            <button class="btn btn-success">Save Form</button>
+            <button class="btn btn-success">Update Form</button>
 
         </form>
 
 
     </div>
 
-    {{-- FIELD TEMPLATE --}} <template id="field-template">
+    {{-- TEMPLATE (same as create) --}} <template id="field-template">
 
         <div class="field-box card mb-3 p-3 position-relative">
-
             <div class="top-0 end-0 text-end">
                 <i type="button" onclick="removeField(this)" class="text-danger bg-danger-subtle rounded small">
                     <span class="me-2 bi bi-x">Delete</span>
                 </i>
             </div>
+
+            <input type="hidden" name="fields[__INDEX__][id]">
             <input type="hidden" name="fields[__INDEX__][order]" class="order-input">
 
             <div class="row align-items-center">
+
 
                 <div class="col-md-1 text-center">
                     <i class="bi bi-arrows-move drag-handle"></i>
@@ -90,7 +70,7 @@
 
                 <div class="col-md-2">
                     <label>Label</label>
-                    <input type="text" name="fields[__INDEX__][label]" class="form-control" placeholder="e.g. Email">
+                    <input type="text" name="fields[__INDEX__][label]" class="form-control">
                 </div>
 
                 <div class="col-md-2">
@@ -105,27 +85,23 @@
                     </select>
                 </div>
 
-                {{-- OPTIONS --}}
                 <div class="col-md-3 options-box d-none">
                     <label>Options</label>
-                    <input type="text" name="fields[__INDEX__][options]" class="form-control"
-                        placeholder="Red, Green, Blue">
+                    <input type="text" name="fields[__INDEX__][options]" class="form-control">
                 </div>
 
-                {{-- MIN --}}
                 <div class="col-md-1 min-box d-none">
                     <label>Min</label>
                     <input type="number" name="fields[__INDEX__][min]" class="form-control">
                 </div>
 
-                {{-- MAX --}}
                 <div class="col-md-1 max-box d-none">
                     <label>Max</label>
                     <input type="number" name="fields[__INDEX__][max]" class="form-control">
                 </div>
 
                 <div class="col-md-1">
-                    <div class="form-check mt-4 d-flex align-items-center">
+                   <div class="form-check mt-4 d-flex align-items-center">
                         <input type="checkbox" name="fields[__INDEX__][required]">
                         <label class="ms-1">Required</label>
                     </div>
@@ -137,81 +113,14 @@
 
 
         </div>
-
     </template>
-
-    {{-- VALIDATION MODAL --}}
-
-    <div class="modal fade" id="validationHelpModal">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-
-
-                <div class="modal-header">
-                    <h5>Validation Guide</h5>
-                    <button class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-
-                    <table class="table table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Field</th>
-                                <th>Rule</th>
-                                <th>Example</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            <tr>
-                                <td>Text</td>
-                                <td>Min / Max length</td>
-                                <td>3 - 50</td>
-                            </tr>
-                            <tr>
-                                <td>Email</td>
-                                <td>Auto validation</td>
-                                <td>user@email.com</td>
-                            </tr>
-                            <tr>
-                                <td>Number</td>
-                                <td>Min / Max value</td>
-                                <td>1 - 100</td>
-                            </tr>
-                            <tr>
-                                <td>Dropdown</td>
-                                <td>Comma options</td>
-                                <td>Red, Blue</td>
-                            </tr>
-                            <tr>
-                                <td>Checkbox</td>
-                                <td>Multiple select</td>
-                                <td>A, B, C</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="alert alert-info">
-                        Email & Number types are automatically validated.
-                    </div>
-
-                </div>
-
-            </div>
-        </div>
-
-
-    </div>
-
-    {{-- SCRIPTS --}}
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
     <script>
         let index = 0;
 
-        // ADD FIELD
+        // ADD FIELD (WITH DATA)
         function addField(data = null) {
 
             let template = document.getElementById('field-template').innerHTML;
@@ -223,11 +132,24 @@
             let el = div.firstElementChild;
 
             if (data) {
+                el.querySelector('[name*="[id]"]').value = data.id;
                 el.querySelector('[name*="[label]"]').value = data.label;
                 el.querySelector('[name*="[type]"]').value = data.type;
 
                 if (data.required) {
                     el.querySelector('[name*="[required]"]').checked = true;
+                }
+
+                if (data.options) {
+                    el.querySelector('[name*="[options]"]').value = data.options.join(',');
+                }
+
+                if (data.min) {
+                    el.querySelector('[name*="[min]"]').value = data.min;
+                }
+
+                if (data.max) {
+                    el.querySelector('[name*="[max]"]').value = data.max;
                 }
             }
 
@@ -238,12 +160,20 @@
             index++;
         }
 
+        // LOAD EXISTING FIELDS
+        document.addEventListener('DOMContentLoaded', function() {
+
+            let fields = @json($form->fields);
+
+            fields.forEach(field => {
+                addField(field);
+            });
+
+        });
+
+
         // REMOVE
         function removeField(btn) {
-            if (document.querySelectorAll('.field-box').length <= 1) {
-                alert('At least one field required');
-                return;
-            }
             btn.closest('.field-box').remove();
         }
 
@@ -270,27 +200,6 @@
             }
         }
 
-        // DEFAULT FIELDS
-        document.addEventListener('DOMContentLoaded', function() {
-
-            let defaults = [{
-                    label: 'Name',
-                    type: 'text',
-                    required: true
-                },
-                {
-                    label: 'Email',
-                    type: 'email',
-                    required: true
-                },
-                {
-                    label: 'Phone',
-                    type: 'number'
-                }
-            ];
-
-            defaults.forEach(f => addField(f));
-        });
 
         // DRAG
         new Sortable(document.getElementById('fields-container'), {
@@ -299,7 +208,7 @@
             onEnd: updateOrderInputs
         });
 
-        // ORDER SAVE
+        // SAVE ORDER
         document.querySelector('form').addEventListener('submit', function() {
             updateOrderInputs();
         });

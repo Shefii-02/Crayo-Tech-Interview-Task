@@ -15,9 +15,12 @@ class FormField extends Model
         'validation_rules',
         'options',
         'order',
+        'min',
+        'max',
         'is_default',
         'placeholder'
     ];
+
 
     protected $casts = [
         'required' => 'boolean',

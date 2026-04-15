@@ -17,33 +17,36 @@ class ExportController extends Controller
 
     public function download(Request $request)
     {
-        $request->validate([
-            'form_id' => 'required|exists:forms,id'
-        ]);
-
         $form = Form::with('fields')->findOrFail($request->form_id);
 
-        $submissions = Submission::where('form_id', $form->id)
-            ->with('data')
-            ->get();
+        $submissions = Submission::where('form_id', $form->id)->get();
 
-        return response()->streamDownload(function () use ($submissions, $form) {
+        $filename = 'form_' . $form->id . '_export.csv';
+
+        $headers = [
+            "Content-Type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+        ];
+
+        $callback = function () use ($submissions, $form) {
 
             $file = fopen('php://output', 'w');
 
-            // Header
-            $headers = $form->fields->pluck('label')->toArray();
-            fputcsv($file, $headers);
+            // HEADER ROW
+            $fieldLabels = $form->fields->pluck('label', 'id');
+            fputcsv($file, $fieldLabels->values()->toArray());
 
-            foreach ($submissions as $submission) {
+            // DATA ROWS
+            foreach ($submissions as $sub) {
 
                 $row = [];
 
-                foreach ($form->fields as $field) {
+                foreach ($fieldLabels as $fieldId => $label) {
+                    $value = $sub->data[$fieldId] ?? '';
 
-                    $value = optional(
-                        $submission->data->where('field_id', $field->id)->first()
-                    )->value;
+                    if (is_array($value)) {
+                        $value = implode('|', $value);
+                    }
 
                     $row[] = $value;
                 }
@@ -52,7 +55,8 @@ class ExportController extends Controller
             }
 
             fclose($file);
+        };
 
-        }, 'export.csv');
+        return response()->stream($callback, 200, $headers);
     }
 }

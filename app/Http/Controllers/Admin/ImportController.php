@@ -8,6 +8,7 @@ use App\Models\Form;
 use App\Models\FormField;
 use App\Models\Submission;
 use App\Models\SubmissionData;
+use Illuminate\Support\Facades\Validator;
 
 class ImportController extends Controller
 {
@@ -18,51 +19,140 @@ class ImportController extends Controller
         return view('admin.import.index', compact('forms'));
     }
 
-    // PREVIEW CSV
-    public function preview(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|mimes:csv,txt',
-            'form_id' => 'required'
-        ]);
 
-        $file = fopen($request->file('file'), 'r');
 
-        $headers = fgetcsv($file);
 
-        $valid = [];
-        $invalid = [];
-        $rowNumber = 1;
 
-        while ($row = fgetcsv($file)) {
-            $rowNumber++;
+public function preview(Request $request)
+{
+    $request->validate([
+        'file' => 'required|mimes:csv,txt',
+        'form_id' => 'required'
+    ]);
 
-            $data = array_combine($headers, $row);
+    $form = Form::with('fields')->findOrFail($request->form_id);
 
-            $errors = [];
+    $file = fopen($request->file('file'), 'r');
 
-            foreach ($data as $key => $value) {
-                if (!$value) {
-                    $errors[] = "$key is required";
-                }
-            }
+    // ✅ AUTO DETECT DELIMITER
+    $firstLine = fgets($file);
+    $delimiter = str_contains($firstLine, "\t") ? "\t" : ",";
+    rewind($file);
 
-            if (count($errors)) {
-                $invalid[] = [
-                    'row' => $rowNumber,
-                    'errors' => $errors
-                ];
+    // ✅ HEADERS
+    $headers = fgetcsv($file, 0, $delimiter);
+
+    $valid = [];
+    $invalid = [];
+    $rowNumber = 1;
+
+    while ($row = fgetcsv($file, 0, $delimiter)) {
+
+        $rowNumber++;
+
+        // ✅ FIX COLUMN COUNT
+        if (count($row) != count($headers)) {
+            if (count($row) > count($headers)) {
+                $row = array_slice($row, 0, count($headers));
             } else {
-                $valid[] = $data;
+                $row = array_pad($row, count($headers), null);
             }
         }
 
-        return view('admin.import.preview', [
-            'valid' => $valid,
-            'invalid' => $invalid,
-            'form_id' => $request->form_id
-        ]);
+        $data = array_combine($headers, $row);
+
+        $rules = [];
+
+        foreach ($form->fields as $field) {
+
+            $name = $field->name;
+            $fieldRules = [];
+
+            // ✅ FIX OPTIONS (STRING → ARRAY)
+            $options = $field->options;
+
+            if (is_string($options)) {
+                $options = explode(',', $options);
+            }
+
+            $options = array_map('trim', $options ?? []);
+
+            // REQUIRED
+            if ($field->required) {
+                $fieldRules[] = 'required';
+            }
+
+            // TYPE
+            if ($field->type == 'email') {
+                $fieldRules[] = 'email';
+            }
+
+            if ($field->type == 'number') {
+                $fieldRules[] = 'numeric';
+            }
+
+            if ($field->type == 'date') {
+                $fieldRules[] = 'date';
+            }
+
+            // MIN / MAX
+            if ($field->min !== null) {
+                $fieldRules[] = 'min:' . $field->min;
+            }
+
+            if ($field->max !== null) {
+                $fieldRules[] = 'max:' . $field->max;
+            }
+
+            // ✅ DROPDOWN
+            if ($field->type == 'dropdown' && $options) {
+                $fieldRules[] = 'in:' . implode(',', $options);
+            }
+
+            // ✅ CHECKBOX
+            if ($field->type == 'checkbox') {
+
+                if (isset($data[$name])) {
+
+                    // support "|" and ","
+                    $data[$name] = str_contains($data[$name], ',')
+                        ? explode(',', $data[$name])
+                        : explode(',', $data[$name]);
+                }
+
+                $rules[$name] = ['array'];
+
+                if ($options) {
+                    $rules[$name . '.*'] = 'in:' . implode(',', $options);
+                }
+
+                continue;
+            }
+
+            $rules[$name] = $fieldRules;
+        }
+
+        // ✅ VALIDATE
+        $validator = Validator::make($data, $rules);
+
+        if ($validator->fails()) {
+            $invalid[] = [
+                'row' => $rowNumber,
+                'errors' => $validator->errors()->all()
+            ];
+        } else {
+            $valid[] = $data;
+        }
     }
+
+    fclose($file);
+
+    return view('admin.import.preview', [
+        'valid' => $valid,
+        'invalid' => $invalid,
+        'form_id' => $request->form_id
+    ]);
+}
 
     // STORE DATA
     public function store(Request $request)
@@ -98,5 +188,65 @@ class ImportController extends Controller
         }
 
         return redirect('/admin/import')->with('success', 'Import successful');
+    }
+
+    public function downloadSample($form_id)
+    {
+        $form = Form::with('fields')->findOrFail($form_id);
+
+        $headers = [];
+        $sampleRow = [];
+
+        foreach ($form->fields as $field) {
+
+            // HEADER (use field name)
+            $headers[] = $field->name;
+
+            // SAMPLE DATA
+            switch ($field->type) {
+
+                case 'email':
+                    $sampleRow[] = 'user@example.com';
+                    break;
+
+                case 'number':
+                    $sampleRow[] = '25';
+                    break;
+
+                case 'date':
+                    $sampleRow[] = now()->format('Y-m-d');
+                    break;
+
+                case 'dropdown':
+                    $sampleRow[] = $field->options[0] ?? 'Option1';
+                    break;
+
+                case 'checkbox':
+                    // multiple values
+                    $sampleRow[] = ($field->options[0] ?? 'Option1') . ',' . ($field->options[1] ?? 'Option2');
+                    break;
+
+                default:
+                    $sampleRow[] = 'Sample Text';
+            }
+        }
+
+        $filename = 'sample_form_' . $form->id . '.csv';
+
+        $handle = fopen('php://temp', 'r+');
+
+        // HEADER
+        fputcsv($handle, $headers);
+
+        // SAMPLE ROW
+        fputcsv($handle, $sampleRow);
+
+        rewind($handle);
+
+        return response()->streamDownload(function () use ($handle) {
+            fpassthru($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 }

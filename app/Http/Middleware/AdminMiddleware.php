@@ -16,7 +16,13 @@ class AdminMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         if (auth()->user()->role !== 'admin') {
-            abort(403);
+                   auth()->logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            abort(403, 'Current user does not have admin privileges.');
+
+
         }
         return $next($request);
     }

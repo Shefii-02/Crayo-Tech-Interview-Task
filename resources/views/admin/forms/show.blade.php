@@ -1,90 +1,158 @@
 @extends('admin.layout')
 
-@section('content')
+@section('admin-content')
 
-<h2 class="text-xl mb-4">Form Details</h2>
+<div class="container mt-4">
+
+
+<h2 class="mb-4">Form Details</h2>
 
 {{-- FORM INFO --}}
-<div class="border p-4 mb-4">
-    <h3 class="text-lg font-bold">{{ $form->title }}</h3>
-    <p>Status: {{ $form->status ? 'Active' : 'Inactive' }}</p>
+<div class="card mb-4">
+    <div class="card-body">
+
+        <h4 class="mb-2">{{ $form->title }}</h4>
+
+        <span class="badge {{ $form->status ? 'bg-success' : 'bg-secondary' }}">
+            {{ $form->status ? 'Active' : 'Inactive' }}
+        </span>
+
+    </div>
 </div>
 
 {{-- FORM FIELDS --}}
-<div class="border p-4 mb-4">
-    <h3 class="font-bold mb-2">Fields</h3>
+<div class="card mb-4">
+    <div class="card-header">
+        <strong>Fields</strong>
+    </div>
 
-    <table class="w-full border">
-        <tr class="bg-gray-100">
-            <th class="p-2 border">Label</th>
-            <th class="p-2 border">Type</th>
-            <th class="p-2 border">Required</th>
-            <th class="p-2 border">Options</th>
-        </tr>
+    <div class="card-body p-0">
 
-        @foreach($form->fields as $field)
-            <tr>
-                <td class="p-2 border">{{ $field->label }}</td>
-                <td class="p-2 border">{{ $field->type }}</td>
-                <td class="p-2 border">
-                    {{ $field->required ? 'Yes' : 'No' }}
-                </td>
-                <td class="p-2 border">
-                    @if($field->options)
-                        {{ implode(', ', $field->options) }}
-                    @else
-                        -
-                    @endif
-                </td>
-            </tr>
-        @endforeach
-    </table>
+        <table class="table table-bordered mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Label</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Options</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @forelse($form->fields as $field)
+                    <tr>
+                        <td>{{ $field->label }}</td>
+                        <td>
+                            <span class="badge bg-info text-dark">
+                                {{ ucfirst($field->type) }}
+                            </span>
+                        </td>
+                        <td>
+                            @if($field->required)
+                                <span class="badge bg-danger">Yes</span>
+                            @else
+                                <span class="badge bg-secondary">No</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($field->options)
+                                {{ implode(', ', $field->options) }}
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="4" class="text-center">No fields found</td>
+                    </tr>
+                @endforelse
+            </tbody>
+
+        </table>
+
+    </div>
 </div>
 
-{{-- PUBLIC FORM LINK --}}
+{{-- PUBLIC LINK --}}
 <div class="mb-4">
-    <a href="{{ url('/admin/form/public/'.$form->id) }}" target="_blank"
-       class="bg-blue-500 text-white px-3 py-2">
+    <a href="{{ url('/admin/form/public/'.$form->id) }}"
+       target="_blank"
+       class="btn btn-primary">
         Open Public Form
     </a>
 </div>
 
 {{-- SUBMISSIONS --}}
-<div class="border p-4">
-    <h3 class="font-bold mb-2">Submissions</h3>
+<div class="card">
+    <div class="card-header">
+        <strong>Submissions</strong>
+    </div>
 
-    @if($form->submissions->count())
-        <table class="w-full border">
+    <div class="card-body p-0">
 
-            <tr class="bg-gray-100">
-                <th class="p-2 border">ID</th>
-                <th class="p-2 border">Data</th>
-                <th class="p-2 border">Date</th>
-            </tr>
+        @if($form->submissions->count())
 
-            @foreach($form->submissions as $submission)
-                <tr>
-                    <td class="p-2 border">{{ $submission->id }}</td>
+            <table class="table table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="80">ID</th>
+                        <th>Data</th>
+                        <th width="180">Date</th>
+                    </tr>
+                </thead>
 
-                    <td class="p-2 border">
-                        @foreach($submission->data as $data)
-                            <div>
-                                <strong>{{ $data->field->label ?? '' }}:</strong>
-                                {{ is_array($data->value) ? implode(',', json_decode($data->value, true)) : $data->value }}
-                            </div>
-                        @endforeach
-                    </td>
+                <tbody>
+                    @foreach($form->submissions as $submission)
 
-                    <td class="p-2 border">
-                        {{ $submission->created_at }}
-                    </td>
-                </tr>
-            @endforeach
+                        <tr>
+                            <td>{{ $submission->id }}</td>
 
-        </table>
-    @else
-        <p>No submissions yet.</p>
-    @endif
+                            <td>
+
+                                @php
+                                    $fields = $form->fields->keyBy('id');
+                                @endphp
+
+                                @foreach($submission->data as $fieldId => $value)
+
+                                    <div class="mb-1">
+                                        <strong>
+                                            {{ $fields[$fieldId]->label ?? 'Field '.$fieldId }}:
+                                        </strong>
+
+                                        @if(is_array($value))
+                                            {{ implode(', ', $value) }}
+                                        @else
+                                            {{ $value }}
+                                        @endif
+                                    </div>
+
+                                @endforeach
+
+                            </td>
+
+                            <td>
+                                {{ $submission->created_at->format('d M Y, h:i A') }}
+                            </td>
+
+                        </tr>
+
+                    @endforeach
+                </tbody>
+
+            </table>
+
+        @else
+            <div class="p-3 text-muted text-center">
+                No submissions yet.
+            </div>
+        @endif
+
+    </div>
+</div>
+
+
 </div>
 
 @endsection

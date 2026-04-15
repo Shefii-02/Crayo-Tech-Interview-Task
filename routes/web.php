@@ -17,7 +17,7 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
-    Route::view('/dashboard', 'admin.dashboard');
+    Route::view('/dashboard', 'admin.dashboard')->name('admin.dashboard');
 
     Route::get('/form/public/{id}', [FormPublicController::class, 'publicFormShow']);
     Route::post('/form/public/{id}', [FormPublicController::class, 'publicFormSubmit']);
@@ -26,8 +26,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::resource('/users', UserController::class);
 
     Route::get('/submissions', [SubmissionController::class, 'index']);
+    Route::get('/submissions/{id}', [SubmissionController::class, 'show']);
     Route::delete('/submissions/{id}', [SubmissionController::class, 'destroy']);
 
+    Route::get('/import/sample/{form}', [ImportController::class, 'downloadSample']);
     Route::get('/import', [ImportController::class, 'index']);
     Route::post('/import/preview', [ImportController::class, 'preview']);
     Route::post('/import/store', [ImportController::class, 'store']);
