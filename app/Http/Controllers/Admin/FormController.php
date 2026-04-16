@@ -81,6 +81,8 @@ class FormController extends Controller
         // CREATE FORM
         $form = Form::create([
             'title' => $request->title,
+            'created_by'=> auth()->id(),
+            'company_id'=> auth()->id(),
             'status' => $request->status ?? 1,
         ]);
 
